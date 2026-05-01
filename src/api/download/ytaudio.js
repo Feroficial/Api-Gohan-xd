@@ -1,120 +1,114 @@
 const axios = require('axios');
-const crypto = require('crypto');
+const cheerio = require('cheerio');
+
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+async function ytmp3(url) {
+    try {
+        const videoId = extractVideoId(url);
+        if (!videoId) throw new Error('Invalid YouTube URL');
+        
+        const pageRes = await axios.get('https://yt1d.com/', {
+            headers: { 'User-Agent': UA }
+        });
+        
+        const $ = cheerio.load(pageRes.data);
+        const token = $('input[name="token"]').val();
+        
+        const formData = new URLSearchParams();
+        formData.append('url', url);
+        formData.append('token', token);
+        formData.append('format', 'mp3');
+        
+        const convertRes = await axios.post('https://yt1d.com/api/ajaxConvert', formData, {
+            headers: {
+                'User-Agent': UA,
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        if (!convertRes.data || !convertRes.data.downloadUrl) {
+            throw new Error('No se pudo obtener el enlace de descarga');
+        }
+        
+        const titleRes = await axios.get(url, {
+            headers: { 'User-Agent': UA }
+        });
+        
+        const titleMatch = titleRes.data.match(/<title>(.*?)<\/title>/);
+        const title = titleMatch ? titleMatch[1].replace(' - YouTube', '').trim() : 'Unknown';
+        
+        const thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+        
+        return {
+            title: title,
+            thumbnail: thumbnail,
+            download_url: convertRes.data.downloadUrl
+        };
+        
+    } catch (error) {
+        throw new Error(`Error: ${error.message}`);
+    }
+}
+
+function extractVideoId(url) {
+    const patterns = [
+        /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
+        /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+        /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/
+    ];
+    
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match) return match[1];
+    }
+    return null;
+}
 
 module.exports = function(app) {
     
-    class SaveTube {
-        constructor() {
-            this.ky = 'C5D58EF67A7584E4A29F6C35BBC4EB12';
-            this.fmt = ['144', '240', '360', '480', '720', '1080', 'mp3'];
-            this.m = /^((?:https?:)?\/\/)?((?:www|m|music)\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=)?(?:embed\/)?(?:v\/)?(?:shorts\/)?([a-zA-Z0-9_-]{11})/;
-            this.is = axios.create({
-                headers: {
-                    'content-type': 'application/json',
-                    'origin': 'https://yt.savetube.me',
-                    'user-agent': 'Mozilla/5.0 (Android 15; Mobile; SM-F958; rv:130.0) Gecko/130.0 Firefox/130.0'
-                }
-            });
-        }
-
-        async decrypt(enc) {
-            try {
-                const [sr, ky] = [Buffer.from(enc, 'base64'), Buffer.from(this.ky, 'hex')];
-                const [iv, dt] = [sr.slice(0, 16), sr.slice(16)];
-                const dc = crypto.createDecipheriv('aes-128-cbc', ky, iv);
-                return JSON.parse(Buffer.concat([dc.update(dt), dc.final()]).toString());
-            } catch (e) {
-                throw new Error(`Error while decrypting data: ${e.message}`);
-            }
-        }
-
-        async getCdn() {
-            const response = await this.is.get("https://media.savetube.vip/api/random-cdn");
-            if (!response.status) return response;
-            return { status: true, data: response.data.cdn };
-        }
-
-        async download(url, format = 'mp3') {
-            const id = url.match(this.m)?.[3];
-            if (!id) return { status: false, msg: "ID cannot be extracted from url" };
-            if (!format || !this.fmt.includes(format)) return { status: false, msg: "Formats not found", list: this.fmt };
-
-            try {
-                const u = await this.getCdn();
-                if (!u.status) return u;
-
-                const res = await this.is.post(`https://${u.data}/v2/info`, { url: `https://www.youtube.com/watch?v=${id}` });
-                const dec = await this.decrypt(res.data.data);
-
-                const dl = await this.is.post(`https://${u.data}/download`, {
-                    id: id,
-                    downloadType: 'audio',
-                    quality: '128',
-                    key: dec.key
-                });
-
-                return {
-                    status: true,
-                    title: dec.title,
-                    format: 'mp3',
-                    thumb: dec.thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
-                    duration: dec.duration,
-                    cached: dec.fromCache,
-                    dl: dl.data.data.downloadUrl
-                };
-            } catch (error) {
-                return { status: false, error: error.message };
-            }
-        }
-    }
-
-    // Endpoint para descargar audio
     app.get('/download/ytaudio', async (req, res) => {
-        const { url } = req.query;
-        const endpointPrefix = req.baseUrl || '';
+        const url = String(req.query.url || "").trim();
         
         if (!url) {
-            return res.status(400).json({ 
-                status: false, 
-                creator: "DVLYONN", 
-                error: "URL parameter is required",
-                message: "Please provide a YouTube URL: ?url=YOUTUBE_URL"
+            return res.status(400).json({
+                status: false,
+                creator: "DVLYONN",
+                error: "URL parameter is required"
             });
         }
-
+        
+        if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
+            return res.status(400).json({
+                status: false,
+                creator: "DVLYONN",
+                error: "Invalid YouTube URL"
+            });
+        }
+        
         try {
-            const st = new SaveTube();
-            const audio = await st.download(url, 'mp3');
-
-            if (!audio.status) {
-                return res.status(500).json({
-                    status: false,
-                    creator: "DVLYONN",
-                    error: audio.error || audio.msg
-                });
+            const result = await ytmp3(url);
+            
+            if (req.query.download === 'true' && result.download_url) {
+                return res.redirect(result.download_url);
             }
-
-            // Si se solicita descarga directa
-            if (req.query.download === 'true') {
-                return res.redirect(audio.dl);
-            }
-
-            return res.json({
+            
+            return res.status(200).json({
                 status: true,
                 creator: "DVLYONN",
                 result: {
-                    title: audio.title,
-                    duration: audio.duration,
-                    thumbnail: audio.thumb,
-                    download_url: audio.dl,
-                    api_download: `${endpointPrefix}/download/ytaudio?url=${encodeURIComponent(url)}&download=true`
+                    title: result.title,
+                    thumbnail: result.thumbnail,
+                    download_url: result.download_url
                 }
             });
-        } catch (e) {
-            return res.status(500).json({ 
-                status: false, 
-                creator: "DVLYONN", 
-                error: e.message 
+            
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                creator: "DVLYONN",
+                error: error.message
             });
         }
     });
