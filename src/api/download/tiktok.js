@@ -385,7 +385,6 @@ module.exports = function(app) {
         try {
             const result = await tiktokDownload(url);
             
-            // Si se solicita descarga directa
             if (req.query.download === 'true') {
                 if (result.video) {
                     return res.redirect(result.video);
