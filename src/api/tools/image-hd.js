@@ -8,7 +8,7 @@ module.exports = function(app) {
             if (!req.files || !req.files.image) {
                 return res.status(400).json({
                     status: false,
-                    creator: 'DVWILKER',
+                    creator: 'DVLYONN',
                     error: 'No image uploaded',
                     usage: {
                         method: 'POST',
@@ -64,7 +64,7 @@ module.exports = function(app) {
 
             res.json({
                 status: true,
-                creator: 'DVWILKER',
+                creator: 'DVLYONN',
                 result: {
                     original_name: imageFile.name,
                     original_size: imageFile.size,
@@ -78,7 +78,7 @@ module.exports = function(app) {
             console.error('Error:', error.message);
             res.status(500).json({
                 status: false,
-                creator: 'DVWILKER',
+                creator: 'DVLYONN',
                 error: error.message || 'Error al mejorar la imagen'
             });
         }
