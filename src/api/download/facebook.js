@@ -1,34 +1,19 @@
 const axios = require('axios');
-const cheerio = require('cheerio');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 async function facebookDownload(url) {
-    try {
-        const response = await axios.get('https://fbdown.net/index.php', {
-            params: { URL: url },
-            headers: { 'User-Agent': UA }
-        });
-        const $ = cheerio.load(response.data);
-        const downloadLinks = [];
-        $('a').each((i, el) => {
-            const href = $(el).attr('href');
-            if (href && href.includes('.mp4')) {
-                downloadLinks.push(href);
-            }
-        });
-        if (downloadLinks.length === 0) throw new Error('No se pudo obtener el video');
-        const qualityLabels = ['HD', 'SD', 'Normal'];
-        const videos = downloadLinks.slice(0, 2).map((link, idx) => ({
-            quality: qualityLabels[idx] || 'Normal',
-            url: link
-        }));
-        const title = $('meta[property="og:title"]').attr('content') || 'Facebook Video';
-        const thumbnail = $('meta[property="og:image"]').attr('content') || null;
-        return { title, thumbnail, videos };
-    } catch (error) {
-        throw new Error(`Error en Facebook: ${error.message}`);
-    }
+    const apiUrl = `https://api.ryzendesu.vip/api/download/facebook?url=${encodeURIComponent(url)}`;
+    const response = await axios.get(apiUrl, { headers: { 'User-Agent': UA } });
+    const data = response.data;
+    if (!data.status) throw new Error('No se pudo obtener el video');
+    const videoUrl = data.result.hd || data.result.sd;
+    if (!videoUrl) throw new Error('No se encontró enlace de video');
+    return {
+        title: data.result.title || 'Facebook Video',
+        thumbnail: data.result.thumbnail || '',
+        videos: [{ quality: 'HD', url: videoUrl }]
+    };
 }
 
 module.exports = function(app) {
@@ -44,7 +29,7 @@ module.exports = function(app) {
         }
         try {
             const result = await facebookDownload(url);
-            if (req.query.download === 'true' && result.videos.length > 0) {
+            if (req.query.download === 'true') {
                 return res.redirect(result.videos[0].url);
             }
             return res.json({
@@ -53,6 +38,7 @@ module.exports = function(app) {
                 result: result
             });
         } catch (err) {
+            console.error('[Facebook Error]', err.message);
             res.status(500).json({
                 status: false,
                 creator: "DVLYONN",
