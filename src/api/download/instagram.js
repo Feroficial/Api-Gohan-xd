@@ -1,4 +1,7 @@
+const express = require('express');
 const axios = require('axios');
+const fs = require('fs-extra');
+const path = require('path');
 
 async function downloadInstagramMedia(instagramUrl) {
     const postId = instagramUrl.split('/p/')[1]?.split('/')[0];
@@ -10,7 +13,7 @@ async function downloadInstagramMedia(instagramUrl) {
             variables: JSON.stringify({ shortcode: postId })
         },
         headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         },
         timeout: 15000
     });
