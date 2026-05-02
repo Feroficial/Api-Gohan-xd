@@ -34,7 +34,7 @@ module.exports = function(app) {
                 status: false,
                 creator: "DVLYONN",
                 error: "Falta el parámetro 'q'",
-                usage: "/download/apk?q=whatsapp"
+                usage: "/download/apk"
             });
         }
         try {
