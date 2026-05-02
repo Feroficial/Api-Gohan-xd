@@ -1,44 +1,35 @@
 const axios = require('axios');
+const cheerio = require('cheerio');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 async function getRandomMeme() {
-    const subreddits = [
-        'MemesES',
-        'MemesESP',
-        'spanishmemes',
-        'LATAMmemes',
-        'dankespanol',
-        'MexicoMemes',
-        'ArgentinaMemes',
-        'ColombiaMemes'
-    ];
-    
-    const randomSub = subreddits[Math.floor(Math.random() * subreddits.length)];
-    const url = `https://www.reddit.com/r/${randomSub}/.json?limit=50`;
+    const query = 'memes graciosos';
+    const url = `https://www.pinterest.com/resource/BaseSearchResource/get/?source_url=%2Fsearch%2Fpins%2F%3Fq%3D${encodeURIComponent(query)}&data=%7B%22options%22%3A%7B%22query%22%3A%22${encodeURIComponent(query)}%22%2C%22scope%22%3A%22pins%22%2C%22page_size%22%3A50%7D%7D`;
     
     const response = await axios.get(url, {
-        headers: { 'User-Agent': UA }
+        headers: {
+            'User-Agent': UA,
+            'Accept': 'application/json'
+        }
     });
     
-    const posts = response.data.data.children;
-    const memes = posts.filter(post => {
-        const url = post.data.url;
-        return url.endsWith('.jpg') || url.endsWith('.png') || url.endsWith('.jpeg') || url.endsWith('.gif') || url.endsWith('.webp');
-    });
+    const results = response.data.resource_response?.data?.results;
+    if (!results || results.length === 0) {
+        throw new Error('No se encontraron memes');
+    }
     
+    const memes = results.filter(item => item.images?.orig?.url);
     if (memes.length === 0) throw new Error('No se encontraron memes');
     
-    const randomMeme = memes[Math.floor(Math.random() * memes.length)].data;
+    const randomMeme = memes[Math.floor(Math.random() * memes.length)];
     
     return {
-        titulo: randomMeme.title,
-        subreddit: randomMeme.subreddit_name_prefixed,
-        url: randomMeme.url,
-        votos: randomMeme.ups,
-        comentarios: randomMeme.num_comments,
-        autor: randomMeme.author,
-        creado: new Date(randomMeme.created_utc * 1000).toLocaleDateString('es-ES')
+        titulo: randomMeme.title || 'Meme divertido',
+        url: randomMeme.images.orig.url,
+        votos: randomMeme.like_count || 0,
+        comentarios: randomMeme.comment_count || 0,
+        autor: randomMeme.pinner?.username || 'Anónimo'
     };
 }
 
@@ -54,7 +45,14 @@ module.exports = function(app) {
             return res.status(200).json({
                 status: true,
                 creador: "DVLYONN",
-                resultado: meme
+                resultado: {
+                    titulo: meme.titulo,
+                    url: meme.url,
+                    votos: meme.votos,
+                    comentarios: meme.comentarios,
+                    autor: meme.autor,
+                    creado: new Date().toLocaleDateString('es-ES')
+                }
             });
             
         } catch (error) {
