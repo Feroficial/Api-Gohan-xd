@@ -1,98 +1,53 @@
 const axios = require('axios');
-const crypto = require('crypto');
 
-const UA = 'Mozilla/5.0 (Android 15; Mobile; SM-F958; rv:130.0) Gecko/130.0 Firefox/130.0';
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-class SpotifyDownloader {
-    constructor() {
-        this.ky = 'C5D58EF67A7584E4A29F6C35BBC4EB12';
-        this.is = axios.create({
+async function spotifyDownload(url) {
+    try {
+        const trackId = extractTrackId(url);
+        if (!trackId) throw new Error('URL de Spotify no válida');
+        
+        // Usar API pública de spotify-downloader
+        const apiUrl = `https://spotifydownloader.vercel.app/api/track/${trackId}`;
+        
+        const response = await axios.get(apiUrl, {
             headers: {
-                'content-type': 'application/json',
-                'origin': 'https://yt.savetube.me',
-                'user-agent': UA
-            }
-        });
-    }
-
-    async decrypt(enc) {
-        const sr = Buffer.from(enc, 'base64');
-        const ky = Buffer.from(this.ky, 'hex');
-        const iv = sr.slice(0, 16);
-        const dt = sr.slice(16);
-        const dc = crypto.createDecipheriv('aes-128-cbc', ky, iv);
-        return JSON.parse(Buffer.concat([dc.update(dt), dc.final()]).toString());
-    }
-
-    async getCdn() {
-        const response = await this.is.get("https://media.savetube.vip/api/random-cdn");
-        if (!response.status) return response;
-        return { status: true, data: response.data.cdn };
-    }
-
-    async searchOnYoutube(query) {
-        const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-        const response = await axios.get(searchUrl, {
-            headers: { 'User-Agent': UA }
-        });
-        const match = response.data.match(/\/watch\?v=([a-zA-Z0-9_-]{11})/);
-        if (!match) throw new Error('No se encontró el video en YouTube');
-        return match[1];
-    }
-
-    async downloadFromSavetube(videoId) {
-        const u = await this.getCdn();
-        if (!u.status) throw new Error('Error obteniendo CDN');
-        
-        const res = await this.is.post(`https://${u.data}/v2/info`, { url: `https://www.youtube.com/watch?v=${videoId}` });
-        const dec = await this.decrypt(res.data.data);
-        
-        const dl = await this.is.post(`https://${u.data}/download`, {
-            id: videoId,
-            downloadType: 'audio',
-            quality: '128',
-            key: dec.key
+                'User-Agent': UA,
+                'Accept': 'application/json'
+            },
+            timeout: 30000
         });
         
-        return {
-            title: dec.title,
-            thumbnail: dec.thumbnail,
-            duration: dec.duration,
-            download_url: dl.data.data.downloadUrl
-        };
-    }
-
-    async download(url) {
-        // Extraer ID de Spotify
-        const trackMatch = url.match(/track\/([a-zA-Z0-9]+)/);
-        if (!trackMatch) throw new Error('URL de Spotify no válida');
+        const data = response.data;
         
-        // Obtener título usando OEmbed de Spotify (sin API key)
-        const oembedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`;
-        const oembedRes = await axios.get(oembedUrl, {
-            headers: { 'User-Agent': UA }
-        });
-        
-        let title = oembedRes.data.title || '';
-        let artist = '';
-        if (title.includes(' - ')) {
-            const parts = title.split(' - ');
-            artist = parts[0];
-            title = parts[1];
+        if (!data || !data.downloadUrl) {
+            throw new Error('No se pudo obtener el enlace de descarga');
         }
         
-        const searchQuery = `${title} ${artist} audio`;
-        const videoId = await this.searchOnYoutube(searchQuery);
-        const result = await this.downloadFromSavetube(videoId);
-        
         return {
-            title: title,
-            artist: artist,
-            thumbnail: result.thumbnail,
-            duration: result.duration,
-            download_url: result.download_url
+            title: data.title || 'Unknown',
+            artist: data.artist || 'Unknown',
+            thumbnail: data.thumbnail || null,
+            duration: data.duration || 0,
+            download_url: data.downloadUrl
         };
+        
+    } catch (error) {
+        throw new Error(`Error: ${error.message}`);
     }
+}
+
+function extractTrackId(url) {
+    const patterns = [
+        /open\.spotify\.com\/track\/([a-zA-Z0-9]+)/,
+        /spotify:track:([a-zA-Z0-9]+)/
+    ];
+    
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match) return match[1];
+    }
+    return null;
 }
 
 module.exports = function(app) {
@@ -117,8 +72,7 @@ module.exports = function(app) {
         }
         
         try {
-            const downloader = new SpotifyDownloader();
-            const result = await downloader.download(url);
+            const result = await spotifyDownload(url);
             
             if (req.query.download === 'true' && result.download_url) {
                 return res.redirect(result.download_url);
