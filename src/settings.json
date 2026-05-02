@@ -103,12 +103,6 @@
           "desc": "Search and download images/videos from Pinterest",
           "path": "/pinterest?query=",
           "innerDesc": "🎨 Search or download from Pinterest\n\nSearch: ?query=SEARCH_TERM&limit=20\nDownload: ?url=PINTEREST_PIN_URL\nDirect download: &download=true"
-        },
-        {
-          "name": "APK Downloader",
-          "desc": "Search and download original APK files from APKMirror",
-          "path": "/apk/search?q=",
-          "innerDesc": "📱 Download original APK files\n\nSearch: /apk/search?q=whatsapp&limit=5\nDownload: /apk/download?url=APK_URL&download=true"
         }
       ]
     },
