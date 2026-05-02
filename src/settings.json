@@ -46,6 +46,12 @@
           "name": "Blue Archive",
           "desc": "Blue Archive Random Images",
           "path": "/random/ba"
+        },
+        {
+          "name": "Random Meme",
+          "desc": "Get a random meme from Reddit",
+          "path": "/random/meme",
+          "innerDesc": "🖼️ Meme aleatorio de Reddit\n\nEjemplo: /random/meme\nImagen directa: /random/meme?imagen=true"
         }
       ]
     },
