@@ -126,6 +126,12 @@
           "desc": "Translate text to any language",
           "path": "/translate?text=",
           "innerDesc": "🌐 Traduce texto a cualquier idioma\n\nParámetros:\n• text - Texto a traducir\n• target - Idioma destino (default: es)\n\nEjemplo: /translate?text=Hello&target=es\nCódigos: es, en, fr, it, pt, de, ja, ko, zh, ru"
+        },
+        {
+          "name": "URL Shortener",
+          "desc": "Shorten long URLs using TinyURL",
+          "path": "/shorten?url=",
+          "innerDesc": "🔗 Acorta enlaces largos\n\nUsage: ?url=LONG_URL\n\nExample: /shorten?url=https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\nResponse: { short: 'https://tinyurl.com/abc123' }"
         }
       ]
     }
