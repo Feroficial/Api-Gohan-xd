@@ -1,46 +1,19 @@
-// src/api/search/youtube.js
-const axios = require('axios');
-
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (Chrome)';
+const yts = require('yt-search');
 
 async function searchYouTube(query, limit = 20) {
-    try {
-        // Usar API pública de yt-search (sin clave, más estable)
-        const url = `https://yt-api.p.rapidapi.com/search?query=${encodeURIComponent(query)}&limit=${limit}`;
-        
-        // Si tenés clave de RapidAPI, usala. Si no, usamos fallback
-        try {
-            const response = await axios.get(url, {
-                headers: {
-                    'User-Agent': UA,
-                    'X-RapidAPI-Key': 'TU_API_KEY_AQUI', // Opcional
-                    'X-RapidAPI-Host': 'yt-api.p.rapidapi.com'
-                },
-                timeout: 10000
-            });
-            
-            if (response.data?.data?.length) {
-                return response.data.data.map(video => ({
-                    title: video.title,
-                    channel: video.channelTitle,
-                    duration: video.length,
-                    views: video.viewCount,
-                    thumbnail: video.thumbnail?.[0]?.url || '',
-                    url: `https://www.youtube.com/watch?v=${video.videoId}`,
-                    publishedAt: video.publishDate || 'N/A'
-                }));
-            }
-        } catch (e) {
-            console.log('RapidAPI falló, usando fallback');
-        }
-        
-        // Fallback: Google Custom Search (otra opción)
-        throw new Error('No se encontraron resultados');
-        
-    } catch (error) {
-        console.error('[YouTube Error]', error.message);
-        return [];
-    }
+    const result = await yts(query);
+    const videos = result.videos.slice(0, limit);
+    
+    return videos.map(video => ({
+        title: video.title,
+        channel: video.author.name,
+        channelId: video.author.id,
+        duration: video.duration.timestamp || `${video.duration.seconds}s`,
+        views: video.views.toLocaleString(),
+        thumbnail: video.thumbnail,
+        url: video.url,
+        publishedAt: video.uploadedAt || 'N/A'
+    }));
 }
 
 module.exports = function(app) {
