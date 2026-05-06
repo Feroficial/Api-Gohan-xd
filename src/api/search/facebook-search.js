@@ -15,20 +15,17 @@ module.exports = function(app) {
         }
 
         try {
-            const apiUrl = `https://api.akng.io.vn/graph/v19.0/search?q=${encodeURIComponent(query)}&type=post&limit=${Math.min(limit, 100)}&access_token=N8o3eySfREuw1pbt3fmcLg`;
+           
+            const apiUrl = `https://api.akng.io.vn/graph/v19.0/search?q=${encodeURIComponent(query)}&type=post&limit=${Math.min(limit, 25)}&access_token=public_key`;
             const response = await axios.get(apiUrl, { timeout: 15000 });
             
             const posts = response.data.data || [];
-            
             const results = posts.map(post => ({
                 id: post.id,
                 message: post.message || 'Sin texto',
                 created_time: post.created_time,
                 permalink_url: `https://facebook.com/${post.id}`,
-                from: {
-                    id: post.from?.id,
-                    name: post.from?.name
-                },
+                from: post.from || { name: 'Usuario' },
                 likes: post.likes?.summary?.total_count || 0,
                 comments: post.comments?.summary?.total_count || 0,
                 shares: post.shares?.count || 0
@@ -46,7 +43,7 @@ module.exports = function(app) {
             res.status(500).json({
                 status: false,
                 creator: "DVLYONN",
-                error: error.message
+                error: "No se pudieron obtener resultados"
             });
         }
     });
